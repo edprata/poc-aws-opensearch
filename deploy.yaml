@@ -1,0 +1,68 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >
+  Provisiona uma Collection OpenSearch Serverless para pesquisa vetorial
+  com políticas de criptografia, acesso e rede para uso externo autenticado.
+
+Resources:
+  ChildrensStoriesCollection:
+    Type: AWS::OpenSearchServerless::Collection
+    Properties:
+      Name: childrens-stories-collection
+      Type: VECTORSEARCH
+      Description: Collection for children’s stories vector search
+
+  ChildrensStoriesEncryptionPolicy:
+    Type: AWS::OpenSearchServerless::SecurityPolicy
+    Properties:
+      Name: childrens-stories-policy-encryption
+      Type: encryption
+      Policy:
+        - Resource: "collection/childrens-stories-collection"
+          AWSOwnedKey: true
+
+  ChildrensStoriesAccessPolicy:
+    Type: AWS::OpenSearchServerless::AccessPolicy
+    Properties:
+      Name: childrens-stories-policy
+      Type: data
+      Policy:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal: "*"
+            Action:
+              - "aoss:BatchPutDocument"
+              - "aoss:Search"
+              - "aoss:BatchGetDocument"
+              - "aoss:DeleteDocument"
+            Resource: "collection/childrens-stories-collection"
+            Condition:
+              IpAddress:
+                aws:SourceIp: ["0.0.0.0/0"]
+
+  ChildrensStoriesNetworkPolicy:
+    Type: AWS::OpenSearchServerless::SecurityPolicy
+    Properties:
+      Name: childrens-stories-network-policy
+      Type: network
+      Policy:
+        - Rules:
+            - ResourceType: collection
+              Resource: 
+                - "childrens-stories-collection"
+              AllowFromPublic: true
+          Description: "Permitir acesso público autenticado à collection childrens-stories-collection"
+
+Outputs:
+  CollectionName:
+    Description: Nome da Collection OpenSearch Serverless
+    Value: !Ref ChildrensStoriesCollection
+  EncryptionPolicyName:
+    Description: Nome da política de criptografia
+    Value: !Ref ChildrensStoriesEncryptionPolicy
+  AccessPolicyName:
+    Description: Nome da política de acesso
+    Value: !Ref ChildrensStoriesAccessPolicy
+  NetworkPolicyName:
+    Description: Nome da política de rede
+    Value: !Ref ChildrensStoriesNetworkPolicy
