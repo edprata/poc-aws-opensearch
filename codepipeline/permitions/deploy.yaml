@@ -1,0 +1,119 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >
+  Role IAM para AWS CodePipeline com permissão para usar CodeStar Connection,
+  além de provisionamento da Collection OpenSearch Serverless com criptografia,
+  políticas de acesso e rede.
+
+Resources:
+  CodePipelineRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: CodePipelineStarterTemplaRole
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: codepipeline.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: CodePipelinePermissions
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:Abort*
+                  - s3:DeleteObject*
+                  - s3:GetBucket*
+                  - s3:GetObject*
+                  - s3:List*
+                  - s3:PutObject
+                  - s3:PutObjectLegalHold
+                  - s3:PutObjectRetention
+                  - s3:PutObjectTagging
+                  - s3:PutObjectVersionTagging
+                  - s3:PutObjectAcl
+                  - s3:PutObjectVersionAcl
+                Resource:
+                  - arn:aws:s3:::codepipelinestartertempla-codepipelineartifactsbuc-2kfyfo58ynx1
+                  - arn:aws:s3:::codepipelinestartertempla-codepipelineartifactsbuc-2kfyfo58ynx1/*
+              - Effect: Allow
+                Action: sts:AssumeRole
+                Resource:
+                  - arn:aws:iam::600102811554:role/CodePipelineStarterTempla-CodePipelineSourceActionR-IOkSA3t2aBCk
+                  - arn:aws:iam::600102811554:role/CodePipelineStarterTempla-CodePipelineDeployActionR-YbTREGLj9MyT
+              - Effect: Allow
+                Action:
+                  - codestar-connections:UseConnection
+                Resource: arn:aws:codeconnections:us-east-2:600102811554:connection/20c59094-3a08-49f9-86a1-08eec07b7a3b
+
+  ChildrensStoriesCollection:
+    Type: AWS::OpenSearchServerless::Collection
+    Properties:
+      Name: childrens-stories-collection
+      Type: VECTORSEARCH
+      Description: Collection for children’s stories vector search
+
+  ChildrensStoriesEncryptionPolicy:
+    Type: AWS::OpenSearchServerless::SecurityPolicy
+    Properties:
+      Name: childrens-stories-policy-encryption
+      Type: encryption
+      Policy:
+        - Resource: "collection/childrens-stories-collection"
+          AWSOwnedKey: true
+
+  ChildrensStoriesAccessPolicy:
+    Type: AWS::OpenSearchServerless::AccessPolicy
+    Properties:
+      Name: childrens-stories-policy
+      Type: data
+      Policy:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal: "*"
+            Action:
+              - "aoss:BatchPutDocument"
+              - "aoss:Search"
+              - "aoss:BatchGetDocument"
+              - "aoss:DeleteDocument"
+            Resource: "collection/childrens-stories-collection"
+            Condition:
+              IpAddress:
+                aws:SourceIp: ["0.0.0.0/0"]
+
+  ChildrensStoriesNetworkPolicy:
+    Type: AWS::OpenSearchServerless::SecurityPolicy
+    Properties:
+      Name: childrens-stories-network-policy
+      Type: network
+      Policy:
+        - Rules:
+            - ResourceType: collection
+              Resource: 
+                - "childrens-stories-collection"
+              AllowFromPublic: true
+          Description: "Permitir acesso público autenticado à collection childrens-stories-collection"
+
+Outputs:
+  RoleName:
+    Description: Nome da Role criada para CodePipeline
+    Value: !Ref CodePipelineRole
+  RoleArn:
+    Description: ARN da Role do CodePipeline
+    Value: !GetAtt CodePipelineRole.Arn
+
+  CollectionName:
+    Description: Nome da Collection OpenSearch Serverless
+    Value: !Ref ChildrensStoriesCollection
+  EncryptionPolicyName:
+    Description: Nome da política de criptografia
+    Value: !Ref ChildrensStoriesEncryptionPolicy
+  AccessPolicyName:
+    Description: Nome da política de acesso
+    Value: !Ref ChildrensStoriesAccessPolicy
+  NetworkPolicyName:
+    Description: Nome da política de rede
+    Value: !Ref ChildrensStoriesNetworkPolicy
